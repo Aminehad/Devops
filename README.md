@@ -1,9 +1,10 @@
 # project
 
-- [Blog](https://blog.amhadid.uca-devops.ovh)
+- [Blog](https://blog.amhadid.uca-devops.ovh) 
 - [Cloud](https://cloud.amhadid.uca-devops.ovh)
 - [Project](https://project.amhadid.uca-devops.ovh)
-
+### subdomains
+click on the links above to see containers deployed
 ### blog,Cloud
 these containers have acces to mariadb db and each have different databases with different users all privleges granted they are related to app_network and traefik_network to assure the https forwarding.
 
