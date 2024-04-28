@@ -1,0 +1,175 @@
+---
+  - name: Installer les dépendances (Docker, Git, Go, Python, MariaDB client)
+    hosts: servers
+    become: true
+    gather_facts: false  # Disable gathering facts
+    tasks:
+      - name: Installer Docker
+        apt:
+          name:
+            - docker.io
+            - docker-compose
+          state: present
+          
+      - name: Installer Git
+        apt:
+          name: git
+          state: present
+  
+      - name: Installer Go
+        apt:  
+          name: golang
+          state: present
+  
+      - name: Installer le module python de Docker
+        apt:
+          name: python3-pip
+          state: present
+  
+      - name: Installer le module Docker Python
+        pip:
+          name: docker
+  
+      - name: Démarrer et activer le service Docker
+        systemd:
+          name: docker
+          state: started
+          enabled: yes
+  
+      - name: Install MariaDB client
+        apt:
+          name: mariadb-client
+          state: present
+  
+  - name: Deploy Traefik Docker container
+    hosts: servers
+    become: true
+    tasks:
+      - name: Pull Traefik Docker image
+        docker_image:
+          name: traefik:v2.6 
+          source: pull
+  
+      - name: Create Docker network for Traefik
+        docker_network:
+          name: traefik_network
+          state: present
+  
+      - name: Start Traefik Docker container
+        command: "sudo docker run -d --name traefik --restart=always --network traefik_network-p 80:80 -p 443:443 -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock:ro -v $(pwd)/letsencrypt:/letsencrypt traefik:v2.5 --api.insecure=true --providers.docker=true --entrypoints.web.address=:80 --entrypoints.websecure.address=:443 --certificatesresolvers.myresolver.acme.email=amine.hadid30@gmail.com --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json --certificatesresolvers.myresolver.acme.tlschallenge=true"
+
+  - name: Deploy Docker containers and clone Git repository on Vmachine
+    hosts: all
+    become: true
+    vars:
+      mariadb_root_password: "root"
+      databases:
+        - name: alphadb
+        - name: betadb
+      users:
+        - name: alpha
+          password: alphabdpwd
+        - name: beta
+          password: betadbpwd
+  
+    tasks:
+      - name: Create Docker network for containers communication (wordpress/nextcloud)
+        community.docker.docker_network:
+          name: app_network
+          state: present
+  
+      - name: Start Docker service
+        service:
+          name: docker
+          state: started
+  
+      - name: Create a Docker container for MariaDB
+        docker_container:
+          name: mariadb
+          image: mariadb:latest
+          env:
+            MYSQL_ROOT_PASSWORD: "root"
+          ports:
+            - "8083:80"
+          networks_cli_compatible: yes
+          networks:
+            - name: app_network
+  
+      - name: Install MariaDB client tools inside MariaDB container
+        community.docker.docker_container_exec:
+          container: mariadb
+          command: "apt-get install -y mariadb-client"
+          detach: false
+        register: mariadb_install_result
+        until: mariadb_install_result is succeeded
+        retries: 2
+        delay: 5
+  
+      - name: Create databases
+        community.docker.docker_container_exec:
+          container: mariadb
+          command: "mariadb -uroot -p{{ mariadb_root_password }} -e 'CREATE DATABASE IF NOT EXISTS {{ item.name }};'"
+        loop: "{{ databases }}"
+  
+      - name: Create users and grant privileges
+        community.docker.docker_container_exec:
+          container: mariadb
+          command: "mariadb -uroot -p{{ mariadb_root_password }} -e 'CREATE USER IF NOT EXISTS {{ item.name }} IDENTIFIED BY \"{{ item.password }}\"; GRANT ALL PRIVILEGES ON . TO {{ item.name }}@\"%\";'"
+        loop: "{{ users }}"
+  
+      - name: Create a Docker container for Nextcloud
+        docker_container:
+          name: nextcloud
+          image: nextcloud:latest
+          networks_cli_compatible: yes
+          networks:
+            - name: app_network
+            - name: traefik_network
+          volumes:
+            - nextcloud:/var/www/html
+          restart_policy: always
+          env:
+            MYSQL_HOST: mariadb
+            MYSQL_DATABASE: alphadb
+            MYSQL_USER: alpha
+            MYSQL_PASSWORD: alphadbpwd
+          labels:
+            traefik.enable: "true"
+            traefik.http.routers.wordpress.rule: "Host(`cloud.amhadid.uca-devops.ovh`)"
+            traefik.http.routers.wordpress.entrypoints: "websecure"
+            traefik.http.services.wordpress.loadbalancer.server.port: "80"
+            traefik.http.routers.wordpress.tls: "true"
+            traefik.http.routers.wordpress.tls.certresolver: "myresolver"
+
+  
+      - name: Create a Docker container for Wordpress
+        docker_container:
+          name: wordpress
+          image: wordpress:latest
+          ports:
+            - "8081:80"
+          networks_cli_compatible: yes
+          networks:
+            - name: app_network
+            - name: traefik_network
+
+          volumes:
+            - wordpress:/var/www/html
+          restart_policy: always
+          env:
+            WORDPRESS_DB_HOST: mariadb
+            WORDPRESS_DB_NAME: betadb
+            WORDPRESS_DB_USER: beta
+            WORDPRESS_DB_PASSWORD: betadbpwd
+          labels:
+            traefik.enable: "true"
+            traefik.http.routers.wordpress.rule: "Host(`blog.amhadid.uca-devops.ovh`)"
+            traefik.http.routers.wordpress.entrypoints: "websecure"
+            traefik.http.services.wordpress.loadbalancer.server.port: "80"
+            traefik.http.routers.wordpress.tls: "true"
+            traefik.http.routers.wordpress.tls.certresolver: "myresolver"
+
+      - name: deploy container 
+        command: "docker run -d --name myapp -p 8000:8000 -v /home/cloud/code-tp-note:/projectets --network traefik_network --restart always --label traefik.enable=true --label 'traefik.http.routers.myapp.rule=Host(`project.amhadid.uca-devops.ovh`)' --label traefik.http.routers.myapp.entrypoints=websecure --label traefik.http.services.myapp.loadbalancer.server.port=8000 --label traefik.http.routers.myapp.tls=true --label traefik.http.routers.myapp.tls.certresolver=myresolver app"
+# building the image was done manualy on the VM as i had trouble with ansible and docker build 
+# 

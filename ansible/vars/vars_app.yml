@@ -1,0 +1,17 @@
+app_dir: "/app"
+app_files:
+  - "configuration.json"
+  - "app.conf"
+
+vars:
+    mariadb_root_password: "root"
+    databases:
+      - name: alphadb
+      - name: betadb
+    users:
+      - name: alpha
+        password: alphabdpwd
+      - name: beta
+        password: betadbpwd
+
+    domain: "amine.uca-devops.ovh"

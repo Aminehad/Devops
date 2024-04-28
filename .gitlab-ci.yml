@@ -1,0 +1,54 @@
+# .gitlab-ci.yml
+
+# Ansible for infrastructure management
+
+stages:
+  - lint
+  - test
+  - deploy
+
+lint_ansible:
+  stage: lint
+  image: ansible/ansible:latest
+  script:
+    - ansible-lint playbook.yml
+
+test_infrastructure:
+  stage: test
+  image: ansible/ansible:latest
+  script:
+    - ansible-playbook playbook.yml -i inventory.yml --syntax-check
+    - ansible-playbook playbook.yml -i inventory.yml --tags "test" 
+  only:
+    - master
+
+deploy_infrastructure:
+  stage: deploy
+  image: ansible/ansible:latest
+  script:
+    - ansible-playbook -u cloud -i inventories/dev/inventory --private-key pkey.txt playbook.yaml
+  only:
+    - master
+
+# Docker build and script execution
+
+stages:
+  - build
+
+variables:
+  VAULT_URL: "https://vault.edu.forestier.re"
+
+build:
+  stage: build
+  script:
+    - apk add --quiet python3 curl
+    - curl -s -o jq.py -O https://git.forestier.re/uca/2022-2023/devops-m1/jq/-/raw/main/jq.py
+    - ./init.sh
+
+# Manual step for Terraform apply
+
+deploy_manual:
+  stage: deploy
+  when: manual
+  script:
+    - terraform apply -auto-approve

@@ -1,0 +1,7 @@
+#cloud-config
+users:
+- name: cloud
+  passwd: $1$GwZT4duo$guq9frwju6IMrz5rBCxIH0
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  ssh_authorized_keys:
+  - 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDNCKGL9qybo7J3BhLJTGRsLQzSrEoGuWJHWuwfSRn49uW5OySjRoi+1Onso3vflBMYd916v/7fLWE+H06yNPURwtpPi65QbJHaFzuGGwckEVHr2GTQBjf+IIVe98sZa5R7tvR+LVV0RY8uHseOFHx9OpM3datyVcefwfx+ZX0Bu55p4Rg7hS8ZkhjvMj/Yx4kz4zmv3fPNoJEi+OHQG8quvmgO33ogqE82ZSCQGjb444BvycShhgPlj12z41spvNpR9uDZClZquAt1MP5vymYufKsSMe/XCnI4F3D7tIr50wFXb7yxu2TmF5544CmYE9lQ7Y+Jp42UZgTropNUrrFDVxYPO2a/aYD4A7obe2VlfjZFpMasMzkBy/KnBintH7aYqBjky9OQlxgH0AsA2T3m86MVQulNNBFMeG4ISchF0oBmJ1oSk/mviksP7i8dfHf7mX1k6PTHkddK0SSYI/yMB1H5FG3d+r+heNLEAOVE51JYzmaq7UEdenokrdAjfp8= amhadid@AMINE-HADID'
